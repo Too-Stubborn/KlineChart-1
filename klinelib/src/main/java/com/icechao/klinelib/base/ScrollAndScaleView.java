@@ -1,7 +1,6 @@
 package com.icechao.klinelib.base;
 
 import android.content.Context;
-import android.os.SystemClock;
 import android.support.v4.view.GestureDetectorCompat;
 import android.util.AttributeSet;
 import android.view.GestureDetector;
@@ -10,7 +9,7 @@ import android.view.ScaleGestureDetector;
 import android.widget.OverScroller;
 import android.widget.RelativeLayout;
 
-import com.icechao.klinelib.utils.LogUtil;
+import com.icechao.klinelib.utils.Status;
 
 /*************************************************************************
  * Description   :
@@ -29,11 +28,11 @@ public abstract class ScrollAndScaleView extends RelativeLayout implements
     protected GestureDetectorCompat gestureDetector;
     protected ScaleGestureDetector scaleDetector;
 
-    protected boolean isLongPress = false;
+    protected boolean showSelected = false;
 
     protected int selectedIndex = -1;
 
-    private OverScroller overScroller;
+    protected OverScroller overScroller;
 
     protected boolean touch = false;
 
@@ -69,6 +68,7 @@ public abstract class ScrollAndScaleView extends RelativeLayout implements
         gestureDetector = new GestureDetectorCompat(getContext(), this);
         scaleDetector = new ScaleGestureDetector(getContext(), this);
         overScroller = new OverScroller(getContext());
+
     }
 
     @Override
@@ -81,14 +81,42 @@ public abstract class ScrollAndScaleView extends RelativeLayout implements
 
     }
 
+    private boolean isTapShow;
+
+    protected Status.ShowCrossModel modle = Status.ShowCrossModel.SELECT_BOTH;
+
     @Override
     public boolean onSingleTapUp(MotionEvent e) {
-        return false;
+
+        switch (modle) {
+            default:
+            case SELECT_PRESS:
+                showSelected = false;
+                return true;
+            case SELECT_BOTH:
+                if (!isTapShow && showSelected) {
+                    showSelected = false;
+                    isTapShow = false;
+                } else {
+                    isTapShow = true;
+                    showSelected = true;
+                    onSelectedChange(e);
+                }
+                return true;
+            case SELECT_TOUCHE:
+                showSelected = true;
+                onSelectedChange(e);
+                return true;
+        }
     }
 
     @Override
     public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
-        if (!isLongPress && !isMultipleTouch()) {
+        if (isTapShow) {
+            showSelected = false;
+            isTapShow = false;
+        }
+        if (!showSelected && !isMultipleTouch() && isScrollEnable()) {
             scrollBy(Math.round(distanceX), 0);
             return true;
         }
@@ -97,32 +125,37 @@ public abstract class ScrollAndScaleView extends RelativeLayout implements
 
     @Override
     public void onLongPress(MotionEvent e) {
-        isLongPress = true;
+        if (modle == Status.ShowCrossModel.SELECT_PRESS || modle == Status.ShowCrossModel.SELECT_BOTH) {
+            showSelected = true;
+            onSelectedChange(e);
+        }
     }
+
+
+    public abstract void onSelectedChange(MotionEvent e);
 
     @Override
     public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
-        LogUtil.e("onFling");
-        Long l = SystemClock.currentThreadTimeMillis();
-        if (!isTouch() && isScrollEnable()) {
+
+        if (!showSelected && !isTouch() && isScrollEnable()) {
             overScroller.fling(scrollX, 0
                     , Math.round(velocityX / scaleX / 2), 0,
                     Integer.MIN_VALUE, Integer.MAX_VALUE,
                     0, 0);
         }
-        LogUtil.e(SystemClock.currentThreadTimeMillis() - l);
         return true;
     }
 
     @Override
     public void computeScroll() {
         if (overScroller.computeScrollOffset()) {
-            if (!isTouch()) {
+            if (!isTouch() && isScrollEnable()) {
                 scrollTo(overScroller.getCurrX(), overScroller.getCurrY());
             } else {
                 overScroller.forceFinished(true);
             }
         }
+        invalidate();
     }
 
     @Override
@@ -140,9 +173,7 @@ public abstract class ScrollAndScaleView extends RelativeLayout implements
         scrollX = x;
         if (scrollX != oldX) {
             onScrollChanged(scrollX, 0, oldX, 0);
-//            invalidate();
         }
-
     }
 
     @Override
@@ -180,15 +211,11 @@ public abstract class ScrollAndScaleView extends RelativeLayout implements
 
     }
 
-    private float x;
-
-    private float y;
-
     @Override
     public boolean onTouchEvent(MotionEvent event) {
 
         if (event.getPointerCount() > 1) {
-            isLongPress = false;
+            showSelected = false;
             selectedIndex = -1;
         }
         if (null != eventLisenter) {
@@ -197,30 +224,23 @@ public abstract class ScrollAndScaleView extends RelativeLayout implements
         switch (event.getAction() & MotionEvent.ACTION_MASK) {
             case MotionEvent.ACTION_DOWN:
                 touch = true;
-                x = event.getX();
-                y = event.getY();
                 break;
             case MotionEvent.ACTION_MOVE:
                 //长按之后移动
-                if (isLongPress) {
-                    onLongPress(event);
+                if (showSelected) {
+                    onSelectedChange(event);
                 }
                 break;
             case MotionEvent.ACTION_POINTER_UP:
                 invalidate();
                 break;
             case MotionEvent.ACTION_UP:
-                if (x == event.getX()) {
-                    if (isLongPress) {
-                        isLongPress = false;
-                        selectedIndex = -1;
-                    }
-                }
+
                 touch = false;
                 invalidate();
                 break;
             case MotionEvent.ACTION_CANCEL:
-                isLongPress = false;
+                showSelected = false;
                 selectedIndex = -1;
                 touch = false;
                 invalidate();
@@ -234,16 +254,6 @@ public abstract class ScrollAndScaleView extends RelativeLayout implements
         return true;
     }
 
-
-    /**
-     * 滑到了最左边
-     */
-    abstract public void onLeftSide();
-
-    /**
-     * 滑到了最右边
-     */
-    abstract public void onRightSide();
 
     /**
      * 是否在触摸中

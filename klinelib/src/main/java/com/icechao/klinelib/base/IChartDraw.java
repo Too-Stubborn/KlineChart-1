@@ -14,7 +14,7 @@ import android.support.annotation.NonNull;
  * @Email        : icechliu@gmail.com
  * @version      : V1
  *************************************************************************/
-public interface IChartDraw<T> {
+public interface IChartDraw {
 
     /**
      * 绘制
@@ -76,5 +76,10 @@ public interface IChartDraw<T> {
     void startAnim(BaseKLineChartView view, float... values);
 
     void resetValues();
+
+
+    void drawMaxMinValue(Canvas canvas, BaseKLineChartView view,
+                         float maxX, float mainHighMaxValue,
+                         float minX, float mainLowMinValue);
 
 }

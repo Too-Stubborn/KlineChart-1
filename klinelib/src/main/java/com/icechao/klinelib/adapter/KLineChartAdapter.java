@@ -16,6 +16,26 @@ public class KLineChartAdapter<T extends KLineEntity> extends BaseKLineChartAdap
 
     private int dataCount;
 
+    private boolean resetShowPosition;
+
+    public boolean getResetShowPosition() {
+        return resetShowPosition;
+    }
+
+    public void setResetShowPosition(boolean resetShowPosition) {
+        this.resetShowPosition = resetShowPosition;
+    }
+
+    public List<T> getDatas() {
+        return datas;
+    }
+
+    private DataTools dataTools;
+
+    public <Q extends DataTools> void setDataTools(Q dataTools) {
+        this.dataTools = dataTools;
+    }
+
     private List<T> datas = new ArrayList<>();
     private float[] points;
 
@@ -24,7 +44,7 @@ public class KLineChartAdapter<T extends KLineEntity> extends BaseKLineChartAdap
     }
 
     public KLineChartAdapter() {
-
+        dataTools = new DataTools();
     }
 
     @Override
@@ -35,7 +55,6 @@ public class KLineChartAdapter<T extends KLineEntity> extends BaseKLineChartAdap
     @Deprecated
     @Override
     public T getItem(int position) {
-
         if (dataCount == 0 || position < 0 || position >= dataCount) {
             return null;
         }
@@ -43,27 +62,50 @@ public class KLineChartAdapter<T extends KLineEntity> extends BaseKLineChartAdap
 
     }
 
-    @Deprecated
     @Override
     public Date getDate(int position) {
         if (position >= dataCount) {
             return new Date();
         }
-        return new Date(datas.get(position).getId());
+        return new Date(datas.get(position).getDate());
     }
 
 
-    public void resetData(List<T> data) {
+    /**
+     * 重置K线数据
+     *
+     * @param data              K线数据
+     * @param resetShowPosition 重置K线显示位置default true,如不需重置K线传入false
+     */
+    public void resetData(List<T> data, boolean resetShowPosition) {
         notifyDataWillChanged();
         datas = data;
         if (null != data && data.size() > 0) {
             this.dataCount = datas.size();
-            points = DataTools.calculate((List<KLineEntity>) datas);
-            notifyDataSetChanged();
+            points = dataTools.calculate(datas);
         } else {
             points = new float[]{};
             this.dataCount = 0;
         }
+        this.resetShowPosition = resetShowPosition;
+        notifyDataSetChanged();
+    }
+
+    /**
+     * 重置K线数据
+     *
+     * @param data K线数据
+     */
+    public void resetData(List<T> data) {
+        resetData(data, true);
+    }
+
+    /**
+     * 通知K线显示位置发和变化,需要重置时需先设置resetShowPosition为true后调用此方法
+     */
+    @Override
+    public void notifyDataSetChanged() {
+        super.notifyDataSetChanged();
     }
 
     /**
@@ -74,7 +116,7 @@ public class KLineChartAdapter<T extends KLineEntity> extends BaseKLineChartAdap
         if (null != entity) {
             datas.add(entity);
             this.dataCount++;
-            points = DataTools.calculate((List<KLineEntity>) datas);
+            points = dataTools.calculate(datas);
             notifyDataSetChanged();
         }
     }
@@ -86,7 +128,7 @@ public class KLineChartAdapter<T extends KLineEntity> extends BaseKLineChartAdap
      */
     public void changeItem(int position, T data) {
         datas.set(position, data);
-        points = DataTools.calculate((List<KLineEntity>) datas);
+        points = dataTools.calculate(datas);
         notifyDataSetChanged();
     }
 }

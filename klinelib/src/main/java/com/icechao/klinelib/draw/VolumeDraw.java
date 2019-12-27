@@ -4,15 +4,14 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.support.annotation.NonNull;
-import android.support.v4.content.ContextCompat;
 import com.icechao.klinelib.R;
 import com.icechao.klinelib.base.BaseDraw;
 import com.icechao.klinelib.base.BaseKLineChartView;
 import com.icechao.klinelib.base.IValueFormatter;
 import com.icechao.klinelib.formatter.ValueFormatter;
 import com.icechao.klinelib.utils.Constants;
-import com.icechao.klinelib.utils.Dputil;
 import com.icechao.klinelib.utils.NumberTools;
+import com.icechao.klinelib.utils.Status;
 
 /*************************************************************************
  * Description   :
@@ -27,24 +26,18 @@ import com.icechao.klinelib.utils.NumberTools;
 public class VolumeDraw extends BaseDraw {
 
     private Paint linePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private Paint redPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private Paint greenPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private Paint increasePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private Paint decreasePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private Paint maOnePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private Paint maTwoPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private Paint volLeftPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private float volWidth = 0;
+    private float volWidth, lineVolWidth, volLengendMarginTop, endMaOne, endMaTwo;
     private IValueFormatter valueFormatter = new ValueFormatter();
-    private float lineVolWidth;
     private int itemsCount;
     private final int indexInterval;
-    private String volMaIndex2;
-    private String volMaIndex1;
-    private String volIndex;
+    private String volMaIndex1, volMaIndex2, volIndex;
 
     public VolumeDraw(Context context) {
-        redPaint.setColor(ContextCompat.getColor(context, R.color.color_03C087));
-        greenPaint.setColor(ContextCompat.getColor(context, R.color.color_FF605A));
-        volWidth = Dputil.Dp2Px(context, 4);
         indexInterval = Constants.getCount();
         volIndex = context.getString(R.string.k_index_vol);
         String temp = context.getString(R.string.k_index_vol_ma);
@@ -52,8 +45,6 @@ public class VolumeDraw extends BaseDraw {
         volMaIndex2 = String.format(temp, Constants.K_VOL_MA_NUMBER_2);
     }
 
-    private float endMaOne = 0;
-    private float endMaTwo = 0;
 
     @Override
     public void drawTranslated(Canvas canvas, float lastX, float curX, @NonNull BaseKLineChartView view, int position, float... values) {
@@ -94,7 +85,7 @@ public class VolumeDraw extends BaseDraw {
     private void drawHistogram(Canvas canvas, float curX, float vol, float open, float close, BaseKLineChartView view, int position) {
 
         float top, r = volWidth / 2 * view.getScaleX();
-        int bottom = view.getVolRect().bottom;
+        int bottom = view.getVolRectBottom();
         if (position == itemsCount - 1 && view.isAnimationLast()) {
             top = view.getVolY(view.getLastVol());
         } else {
@@ -103,12 +94,12 @@ public class VolumeDraw extends BaseDraw {
         if (0 != vol && top > bottom - 1) {
             top = bottom - 1;
         }
-        if (view.isLine()) {
+        if ((null == view.getVolChartStatus() && view.getKlineStatus().showLine()) || view.getVolChartStatus() == Status.VolChartStatus.LINE_CHART) {
             canvas.drawRect(curX - lineVolWidth, top, curX + lineVolWidth, bottom, linePaint);
         } else if (close >= open) {//涨
-            canvas.drawRect(curX - r, top, curX + r, bottom, redPaint);
+            canvas.drawRect(curX - r, top, curX + r, bottom, increasePaint);
         } else {
-            canvas.drawRect(curX - r, top, curX + r, bottom, greenPaint);
+            canvas.drawRect(curX - r, top, curX + r, bottom, decreasePaint);
         }
 
     }
@@ -116,26 +107,27 @@ public class VolumeDraw extends BaseDraw {
     @Override
     public void drawText(@NonNull Canvas canvas, @NonNull BaseKLineChartView view, float x, float y, int position, float[] values) {
         String text;
+        volLengendMarginTop += volLengendMarginTop;
         if (position == itemsCount - 1 && view.isAnimationLast()) {
-            text = volIndex + NumberTools.getTradeMarketAmount(getValueFormatter().format(view.getLastVol())) + "  ";
+            text = volIndex + NumberTools.formatAmount(getValueFormatter().format(view.getLastVol())) + "  ";
         } else {
-            text = volIndex + NumberTools.getTradeMarketAmount(getValueFormatter().format(values[Constants.INDEX_VOL])) + "  ";
+            text = volIndex + NumberTools.formatAmount(getValueFormatter().format(values[Constants.INDEX_VOL])) + "  ";
         }
         canvas.drawText(text, x, y, volLeftPaint);
         x += view.getTextPaint().measureText(text);
 
-        if (position == itemsCount - 1 && view.isAnimationLast()) {
-            text = volMaIndex1 + NumberTools.getTradeMarketAmount(getValueFormatter().format(endMaOne)) + "  ";
+        if (position == itemsCount - 1 && view.isAnimationLast() && 0 != endMaOne) {
+            text = volMaIndex1 + NumberTools.formatAmount(getValueFormatter().format(endMaOne)) + "  ";
         } else {
-            text = volMaIndex1 + NumberTools.getTradeMarketAmount(getValueFormatter().format(values[Constants.INDEX_VOL_MA_1])) + "  ";
+            text = volMaIndex1 + NumberTools.formatAmount(getValueFormatter().format(values[Constants.INDEX_VOL_MA_1])) + "  ";
         }
         canvas.drawText(text, x, y, maOnePaint);
         x += maOnePaint.measureText(text);
-        if (position == itemsCount - 1 && view.isAnimationLast()) {
+        if (position == itemsCount - 1 && view.isAnimationLast() && 0 != endMaOne) {
 
-            text = volMaIndex2 + NumberTools.getTradeMarketAmount(getValueFormatter().format(endMaTwo)) + "  ";
+            text = volMaIndex2 + NumberTools.formatAmount(getValueFormatter().format(endMaTwo)) + "  ";
         } else {
-            text = volMaIndex2 + NumberTools.getTradeMarketAmount(getValueFormatter().format(values[Constants.INDEX_VOL_MA_2])) + "  ";
+            text = volMaIndex2 + NumberTools.formatAmount(getValueFormatter().format(values[Constants.INDEX_VOL_MA_2])) + "  ";
         }
         canvas.drawText(text, x, y, maTwoPaint);
     }
@@ -171,7 +163,7 @@ public class VolumeDraw extends BaseDraw {
      *
      * @param color
      */
-    public void setMa5Color(int color) {
+    public void setMaOneColor(int color) {
         this.maOnePaint.setColor(color);
     }
 
@@ -180,7 +172,7 @@ public class VolumeDraw extends BaseDraw {
      *
      * @param color
      */
-    public void setVolLeftColor(int color) {
+    public void setVolLengendColor(int color) {
         this.volLeftPaint.setColor(color);
     }
 
@@ -190,7 +182,7 @@ public class VolumeDraw extends BaseDraw {
      *
      * @param color
      */
-    public void setMa10Color(int color) {
+    public void setMaTwoColor(int color) {
         this.maTwoPaint.setColor(color);
     }
 
@@ -205,7 +197,7 @@ public class VolumeDraw extends BaseDraw {
     /**
      * 设置文字大小
      *
-     * @param textSize
+     * @param textSize textSize
      */
     public void setTextSize(float textSize) {
         this.maOnePaint.setTextSize(textSize);
@@ -224,7 +216,19 @@ public class VolumeDraw extends BaseDraw {
         endMaTwo = 0;
     }
 
-    public void setMinuteColor(int color) {
+    public void setLineChartColor(int color) {
         linePaint.setColor(color);
+    }
+
+    public void setVolLengendMarginTop(float volLengendMarginTop) {
+        this.volLengendMarginTop = volLengendMarginTop;
+    }
+
+    public void setIncreaseColor(int color) {
+        this.increasePaint.setColor(color);
+    }
+
+    public void setDecreaseColor(int color) {
+        this.decreasePaint.setColor(color);
     }
 }
